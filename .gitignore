@@ -1,0 +1,8 @@
+bin
+.DS_Store
+build
+dist
+private
+zephyr.jar
+.junittests_*
+.junitdiscofile.bin
