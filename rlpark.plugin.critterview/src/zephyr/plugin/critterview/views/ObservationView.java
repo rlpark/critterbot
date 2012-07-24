@@ -30,7 +30,6 @@ import rlpark.plugin.rltoys.utils.Utils;
 import zephyr.plugin.core.ZephyrCore;
 import zephyr.plugin.core.api.synchronization.Chrono;
 import zephyr.plugin.core.api.synchronization.Clock;
-import zephyr.plugin.core.api.synchronization.Closeable;
 import zephyr.plugin.core.internal.actions.RestartAction;
 import zephyr.plugin.core.internal.actions.TerminateAction;
 import zephyr.plugin.core.internal.helpers.ClassViewProvider;
@@ -45,7 +44,7 @@ import zephyr.plugin.core.internal.views.Restartable;
 import zephyr.plugin.critterview.FileHandler;
 
 @SuppressWarnings({ "synthetic-access", "restriction" })
-public class ObservationView extends EnvironmentView<CritterbotProblem> implements Closeable, Restartable {
+public class ObservationView extends EnvironmentView<CritterbotProblem> implements Restartable {
   static public class Provider extends ClassViewProvider {
     public Provider() {
       super(CritterbotProblem.class);
@@ -55,9 +54,9 @@ public class ObservationView extends EnvironmentView<CritterbotProblem> implemen
   protected class IntegerTextClient extends TextClient {
     private final int labelIndex;
 
-    public IntegerTextClient(String obsLabel, String textLabel) {
+    public IntegerTextClient(Legend legend, String obsLabel, String textLabel) {
       super(textLabel);
-      labelIndex = legend().indexOf(obsLabel);
+      labelIndex = legend.indexOf(obsLabel);
     }
 
     @Override
@@ -71,6 +70,7 @@ public class ObservationView extends EnvironmentView<CritterbotProblem> implemen
   double[] currentObservation;
   private final TerminateAction terminateAction;
   private final RestartAction restartAction;
+  private String filepath;
 
   public ObservationView() {
     terminateAction = new TerminateAction(this);
@@ -79,28 +79,27 @@ public class ObservationView extends EnvironmentView<CritterbotProblem> implemen
     restartAction.setEnabled(false);
   }
 
-  public Legend legend() {
-    return instance.current().legend();
-  }
-
   @Override
-  protected ObsLayout getObservationLayout() {
-    SensorGroup irDistanceGroup = new SensorGroup("IR Distance Sensors", startsWith(IRDistance), 0, 255);
-    SensorGroup lightGroup = new SensorGroup("Light Sensors", startsWith(Light), 0, 800);
-    SensorGroup motorSpeedGroup = new SensorGroup("Speed", startsWith(Motor + Speed), -35, 35);
-    SensorGroup motorCurrentGroup = new SensorGroup("Current", startsWith(Motor + Current), 0, 90);
-    SensorGroup motorTemperatureGroup = new SensorGroup("Temperature", startsWith(Motor + Temperature), 40, 175);
+  protected ObsLayout getObservationLayout(Clock clock, CritterbotProblem current) {
+    Legend legend = current.legend();
+    SensorGroup irDistanceGroup = new SensorGroup("IR Distance Sensors", startsWith(legend, IRDistance), 0, 255);
+    SensorGroup lightGroup = new SensorGroup("Light Sensors", startsWith(legend, Light), 0, 800);
+    SensorGroup motorSpeedGroup = new SensorGroup("Speed", startsWith(legend, Motor + Speed), -35, 35);
+    SensorGroup motorCurrentGroup = new SensorGroup("Current", startsWith(legend, Motor + Current), 0, 90);
+    SensorGroup motorTemperatureGroup = new SensorGroup("Temperature", startsWith(legend, Motor + Temperature), 40, 175);
     SensorCollection motorCollection = new SensorCollection("Motors", motorSpeedGroup, motorCurrentGroup,
                                                             motorTemperatureGroup);
-    SensorGroup rotVelGroup = new SensorGroup("Gyroscope", startsWith(RotationVel), 0, 255);
-    SensorGroup accelGroup = new SensorGroup("Accelerometers", startsWith(Accel), -2048, 2048);
-    SensorGroup magGroup = new SensorGroup("Magnetometers", startsWith(Mag), -2048, 2048);
+    SensorGroup rotVelGroup = new SensorGroup("Gyroscope", startsWith(legend, RotationVel), 0, 255);
+    SensorGroup accelGroup = new SensorGroup("Accelerometers", startsWith(legend, Accel), -2048, 2048);
+    SensorGroup magGroup = new SensorGroup("Magnetometers", startsWith(legend, Mag), -2048, 2048);
     SensorCollection inertialCollection = new SensorCollection("Inertial Sensors", rotVelGroup, accelGroup);
-    SensorGroup irLightGroup = new SensorGroup("IR Light Sensors", startsWith(IRLight), 0, 255);
-    SensorGroup thermalGroup = new SensorGroup("Thermal Sensors", startsWith(Thermal), 14600, 15100);
-    SensorGroup leftMicrophoneGroup = new SensorGroup("Microphone Left", startsWith(MicrophoneFFT + "Left"), 0, 80);
-    SensorGroup rightMicrophoneGroup = new SensorGroup("Microphone Right", startsWith(MicrophoneFFT + "Right"), 0, 80);
-    SensorTextGroup infoGroup = createInfoGroup();
+    SensorGroup irLightGroup = new SensorGroup("IR Light Sensors", startsWith(legend, IRLight), 0, 255);
+    SensorGroup thermalGroup = new SensorGroup("Thermal Sensors", startsWith(legend, Thermal), 14600, 15100);
+    SensorGroup leftMicrophoneGroup = new SensorGroup("Microphone Left", startsWith(legend, MicrophoneFFT + "Left"), 0,
+                                                      80);
+    SensorGroup rightMicrophoneGroup = new SensorGroup("Microphone Right", startsWith(legend, MicrophoneFFT + "Right"),
+                                                       0, 80);
+    SensorTextGroup infoGroup = createInfoGroup(clock, legend);
     return new ObsLayout(new ObsWidget[][] { { infoGroup, irDistanceGroup, lightGroup },
         { magGroup, motorCollection, inertialCollection }, { irLightGroup, thermalGroup },
         { leftMicrophoneGroup, rightMicrophoneGroup } });
@@ -112,9 +111,9 @@ public class ObservationView extends EnvironmentView<CritterbotProblem> implemen
     toolBarManager.add(terminateAction);
   }
 
-  private SensorTextGroup createInfoGroup() {
+  private SensorTextGroup createInfoGroup(final Clock clock, final Legend legend) {
     TextClient busVoltageTextClient = new TextClient("Voltage:") {
-      int busVoltageIndex = legend().indexOf(BusVoltage);
+      int busVoltageIndex = legend.indexOf(BusVoltage);
 
       @Override
       public String currentText() {
@@ -126,14 +125,11 @@ public class ObservationView extends EnvironmentView<CritterbotProblem> implemen
     TextClient loopTimeTextClient = new TextClient("Loop Time:") {
       @Override
       public String currentText() {
-        Clock clock = instance.clock();
-        if (clock == null)
-          return "00ms";
         return Chrono.toPeriodString(clock.lastPeriodNano());
       }
     };
     TextClient cycleTimeTextClient = new TextClient("Cycle Time:") {
-      int cycleTimeIndex = instance.current().legend().indexOf(CritterbotLabels.CycleTime);
+      int cycleTimeIndex = legend.indexOf(CritterbotLabels.CycleTime);
 
       @Override
       public String currentText() {
@@ -142,27 +138,28 @@ public class ObservationView extends EnvironmentView<CritterbotProblem> implemen
         return String.valueOf((int) currentObservation[cycleTimeIndex]) + "%";
       }
     };
-    new IntegerTextClient(CritterbotLabels.CycleTime, "");
+    new IntegerTextClient(legend, CritterbotLabels.CycleTime, "");
     return new SensorTextGroup("Info", busVoltageTextClient, loopTimeTextClient, cycleTimeTextClient,
-                               new IntegerTextClient(CritterbotLabels.PowerSource, "Power Source"),
-                               new IntegerTextClient(CritterbotLabels.ChargeState, "Charge State"),
-                               new IntegerTextClient(CritterbotLabels.MonitorState, "Monitor State"),
-                               new IntegerTextClient(CritterbotLabels.ErrorFlags, "Error Flag"));
+                               new IntegerTextClient(legend, CritterbotLabels.PowerSource, "Power Source"),
+                               new IntegerTextClient(legend, CritterbotLabels.ChargeState, "Charge State"),
+                               new IntegerTextClient(legend, CritterbotLabels.MonitorState, "Monitor State"),
+                               new IntegerTextClient(legend, CritterbotLabels.ErrorFlags, "Error Flag"));
   }
 
-  private int[] startsWith(String prefix) {
+  private int[] startsWith(Legend legend, String prefix) {
     List<Integer> indexes = new ArrayList<Integer>();
-    for (Map.Entry<String, Integer> entry : legend().legend().entrySet())
+    for (Map.Entry<String, Integer> entry : legend.legend().entrySet())
       if (entry.getKey().startsWith(prefix))
         indexes.add(entry.getValue());
     Collections.sort(indexes);
     return Utils.asIntArray(indexes);
   }
 
-  private void setViewTitle() {
-    CritterbotProblem problem = instance.current();
-    if (problem == null)
+  private void setViewTitle(CritterbotProblem problem) {
+    if (problem == null) {
       setViewName("Observation", "");
+      return;
+    }
     CrtrLogFile logFile = problem instanceof CrtrLogFile ? (CrtrLogFile) problem : null;
     String viewTitle = logFile == null ? problem.getClass().getSimpleName() : new File(logFile.filepath).getName();
     String tooltip = logFile == null ? "" : logFile.filepath;
@@ -171,10 +168,6 @@ public class ObservationView extends EnvironmentView<CritterbotProblem> implemen
 
   @Override
   public void restart() {
-    CritterbotProblem problem = instance.current();
-    if (!(problem instanceof CrtrLogFile))
-      return;
-    final String filepath = ((CrtrLogFile) problem).filepath;
     close();
     ZephyrCore.start(new Runnable() {
       @Override
@@ -196,23 +189,20 @@ public class ObservationView extends EnvironmentView<CritterbotProblem> implemen
   }
 
   @Override
-  protected void setLayout() {
-    super.setLayout();
-    restartAction.setEnabled(instance.current() instanceof CrtrLogFile);
+  protected void setLayout(Clock clock, CritterbotProblem current) {
+    super.setLayout(clock, current);
+    boolean restartable = current instanceof CrtrLogFile;
+    restartAction.setEnabled(restartable);
+    filepath = restartable ? ((CrtrLogFile) current).filepath : null;
     terminateAction.setEnabled(true);
-    setViewTitle();
+    setViewTitle(current);
   }
 
   @Override
-  protected boolean synchronize() {
-    currentObservation = instance.current().lastReceivedObs();
+  protected boolean synchronize(CritterbotProblem current) {
+    currentObservation = current.lastReceivedObs();
     synchronize(currentObservation);
     return true;
-  }
-
-  @Override
-  public void close() {
-    instance.unset();
   }
 
   @Override
@@ -220,5 +210,6 @@ public class ObservationView extends EnvironmentView<CritterbotProblem> implemen
     super.unsetLayout();
     restartAction.setEnabled(false);
     terminateAction.setEnabled(false);
+    setViewTitle(null);
   }
 }

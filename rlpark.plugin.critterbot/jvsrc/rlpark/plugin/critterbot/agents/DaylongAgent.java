@@ -11,7 +11,7 @@ import rlpark.plugin.critterbot.data.CritterbotObservation;
 import rlpark.plugin.critterbot.environment.CritterbotEnvironment;
 import rlpark.plugin.critterbot.environment.CritterbotRobot;
 import rlpark.plugin.rltoys.agents.Agent;
-import rlpark.plugin.rltoys.agents.RandomAgent;
+import rlpark.plugin.rltoys.agents.rl.RandomAgent;
 import zephyr.plugin.core.api.internal.monitoring.fileloggers.TimedFileLogger;
 import zephyr.plugin.core.api.monitoring.annotations.Monitor;
 import zephyr.plugin.core.api.synchronization.Clock;
