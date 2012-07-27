@@ -52,11 +52,12 @@ public class CritterbotDemonsPredictionOffPolicy implements Runnable {
     System.out.println("Creating demons...");
     List<Demon> demons = createDemons(behaviour, policies, rewardFunctions);
     horde = new Horde(demons, rewardFunctions, null, null);
-    System.out.println("Ready for running...");
+    System.out.println(String.format("Ready for running... %d demons with %d actives features on %d.", demons.size(),
+                                     (int) projector.vectorNorm(), projector.vectorSize()));
   }
 
   private Projector createRepresentation(Legend legend) {
-    Hashing hashing = new MurmurHashing(random, 50000);
+    Hashing hashing = new MurmurHashing(random, 5000);
     TileCoders tileCoders = new TileCodersHashing(hashing, normalizers.getRanges());
     for (int i = 0; i < legend.nbLabels(); i++)
       for (int j = i + 1; j < legend.nbLabels(); j++)
@@ -105,7 +106,7 @@ public class CritterbotDemonsPredictionOffPolicy implements Runnable {
       Action a_tp1 = behaviour.decide(x_tp1);
       a_t = a_tp1;
       x_t = x_tp1;
-      if (chrono.getCurrentChrono() > 10.0) {
+      if (chrono.getCurrentChrono() > 60.0) {
         System.out.println(((clock.timeStep() - lastTick) * 1000.0) / chrono.getCurrentMillis() + " ticks per second");
         chrono.start();
         lastTick = clock.timeStep();
