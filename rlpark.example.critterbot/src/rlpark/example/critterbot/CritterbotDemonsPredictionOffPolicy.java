@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
-import rlpark.plugin.critterbot.CritterbotProblem;
 import rlpark.plugin.critterbot.actions.CritterbotAction;
 import rlpark.plugin.critterbot.actions.XYThetaAction;
 import rlpark.plugin.critterbot.crtrlog.CrtrLogFile;
@@ -24,15 +23,19 @@ import rlpark.plugin.rltoys.envio.policy.Policy;
 import rlpark.plugin.rltoys.horde.Horde;
 import rlpark.plugin.rltoys.horde.demons.Demon;
 import rlpark.plugin.rltoys.horde.demons.PredictionOffPolicyDemon;
+import rlpark.plugin.rltoys.horde.functions.ConstantGamma;
 import rlpark.plugin.rltoys.horde.functions.RewardFunction;
 import rlpark.plugin.rltoys.horde.functions.RewardObservationFunction;
+import rlpark.plugin.rltoys.math.normalization.IncMeanVarNormalizer;
 import rlpark.plugin.rltoys.math.vector.RealVector;
+import rlpark.plugin.rltoys.math.vector.SparseVector;
 import zephyr.plugin.core.api.synchronization.Chrono;
 import zephyr.plugin.core.api.synchronization.Clock;
 
 @SuppressWarnings("restriction")
 public class CritterbotDemonsPredictionOffPolicy implements Runnable {
-  private final CritterbotProblem robot;
+  private static final ConstantGamma[] Gammas = new ConstantGamma[] { new ConstantGamma(.8), new ConstantGamma(.99) };
+  private final CrtrLogFile robot;
   private final Clock clock = new Clock();
   private final Horde horde;
   private final Random random = new Random(0);
@@ -67,14 +70,15 @@ public class CritterbotDemonsPredictionOffPolicy implements Runnable {
 
   private List<Demon> createDemons(Policy behaviour, Policy[] policies, List<RewardFunction> rewardFunctions) {
     List<Demon> demons = new ArrayList<Demon>();
-    for (Policy target : policies)
-      for (RewardFunction rewardFunction : rewardFunctions) {
-        double alpha_v = .1 / projector.vectorNorm();
-        double alpha_w = .1 / projector.vectorNorm();
-        GTDLambda gtd = new GTDLambda(.3, .99, alpha_v, alpha_w, projector.vectorSize());
-        PredictionOffPolicyDemon demon = new PredictionOffPolicyDemon(target, behaviour, gtd, rewardFunction);
-        demons.add(demon);
-      }
+    for (ConstantGamma gamma : Gammas)
+      for (Policy target : policies)
+        for (RewardFunction rewardFunction : rewardFunctions) {
+          double alpha_v = .1 / projector.vectorNorm();
+          double alpha_w = .1 / projector.vectorNorm();
+          GTDLambda gtd = new GTDLambda(.3, gamma.gamma(), alpha_v, alpha_w, projector.vectorSize());
+          PredictionOffPolicyDemon demon = new PredictionOffPolicyDemon(target, behaviour, gtd, rewardFunction);
+          demons.add(demon);
+        }
     return demons;
   }
 
@@ -98,16 +102,19 @@ public class CritterbotDemonsPredictionOffPolicy implements Runnable {
     Action a_t = null;
     Chrono chrono = new Chrono();
     long lastTick = 0;
+    IncMeanVarNormalizer incMean = new IncMeanVarNormalizer();
     while (clock.tick()) {
-      ObsArray o_tp1 = new ObsArray(robot.lastReceivedObs());
-      double[] no_tp1 = normalizers.update(o_tp1.doubleValues());
-      RealVector x_tp1 = projector.project(no_tp1);
-      horde.update(o_tp1, x_t, a_t, x_tp1);
+      double[] o_tp1 = robot.step();
+      double[] no_tp1 = normalizers.update(o_tp1);
+      SparseVector x_tp1 = (SparseVector) projector.project(no_tp1);
+      incMean.update(x_tp1.nonZeroElements());
+      horde.update(new ObsArray(o_tp1), x_t, a_t, x_tp1);
       Action a_tp1 = behaviour.decide(x_tp1);
       a_t = a_tp1;
       x_t = x_tp1;
       if (chrono.getCurrentChrono() > 60.0) {
-        System.out.println(((clock.timeStep() - lastTick) * 1000.0) / chrono.getCurrentMillis() + " ticks per second");
+        System.out.println(((clock.timeStep() - lastTick) * 1000.0) / chrono.getCurrentMillis() + " ticks per second. "
+            + incMean.mean() + " active features in average");
         chrono.start();
         lastTick = clock.timeStep();
       }
