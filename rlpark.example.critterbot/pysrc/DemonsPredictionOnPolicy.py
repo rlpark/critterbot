@@ -68,7 +68,8 @@ class DemonExperiment(object):
             self.latencyTimer.start()
             o_tp1 = self.environment.waitNewObs()
             self.learn(a_t, o_tp1)
-            a_tp1 = self.behaviourPolicy.decide(None)
+            self.behaviourPolicy.update(None)
+            a_tp1 = self.behaviourPolicy.sampleAction()
             self.environment.sendAction(a_tp1)
             a_t = a_tp1
             waitingTime = self.Latency - self.latencyTimer.getCurrentMillis()

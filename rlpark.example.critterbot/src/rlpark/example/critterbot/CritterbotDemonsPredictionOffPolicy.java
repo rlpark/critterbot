@@ -19,6 +19,7 @@ import rlpark.plugin.rltoys.envio.actions.Action;
 import rlpark.plugin.rltoys.envio.observations.Legend;
 import rlpark.plugin.rltoys.envio.observations.ObsArray;
 import rlpark.plugin.rltoys.envio.policy.ActionPolicy;
+import rlpark.plugin.rltoys.envio.policy.Policies;
 import rlpark.plugin.rltoys.envio.policy.Policy;
 import rlpark.plugin.rltoys.horde.Horde;
 import rlpark.plugin.rltoys.horde.demons.Demon;
@@ -29,6 +30,7 @@ import rlpark.plugin.rltoys.horde.functions.RewardObservationFunction;
 import rlpark.plugin.rltoys.math.normalization.IncMeanVarNormalizer;
 import rlpark.plugin.rltoys.math.vector.RealVector;
 import rlpark.plugin.rltoys.math.vector.SparseVector;
+import rlpark.plugin.rltoys.math.vector.implementations.PVector;
 import zephyr.plugin.core.api.synchronization.Chrono;
 import zephyr.plugin.core.api.synchronization.Clock;
 
@@ -63,8 +65,11 @@ public class CritterbotDemonsPredictionOffPolicy implements Runnable {
     Hashing hashing = new MurmurHashing(random, 5000);
     TileCoders tileCoders = new TileCodersHashing(hashing, normalizers.getRanges());
     for (int i = 0; i < legend.nbLabels(); i++)
-      for (int j = i + 1; j < legend.nbLabels(); j++)
+      for (int j = i + 1; j < legend.nbLabels(); j++) {
         tileCoders.addTileCoder(new int[] { i, j }, 10, 10);
+        if (tileCoders.vectorNorm() > 400)
+          return tileCoders;
+      }
     return tileCoders;
   }
 
@@ -106,10 +111,11 @@ public class CritterbotDemonsPredictionOffPolicy implements Runnable {
     while (clock.tick()) {
       double[] o_tp1 = robot.step();
       double[] no_tp1 = normalizers.update(o_tp1);
-      SparseVector x_tp1 = (SparseVector) projector.project(no_tp1);
-      incMean.update(x_tp1.nonZeroElements());
+      RealVector x_tp1 = projector.project(no_tp1);
+      incMean.update(((SparseVector) x_tp1).nonZeroElements());
+      x_tp1 = new PVector(x_tp1);
       horde.update(new ObsArray(o_tp1), x_t, a_t, x_tp1);
-      Action a_tp1 = behaviour.decide(x_tp1);
+      Action a_tp1 = Policies.decide(behaviour, x_tp1);
       a_t = a_tp1;
       x_t = x_tp1;
       if (chrono.getCurrentChrono() > 60.0) {

@@ -23,21 +23,21 @@ public class CritterviewTests {
   }
 
 
-  @Test
+  @Test(timeout = RunnableFilesTests.TimeOut)
   public void testJythonHordeNextingTest() {
     ZephyrCore.setSynchronous(true);
     RunnableTests.testFileLoading(critterbotRoot + "/rlpark.example.critterbot/pysrc/DemonsPredictionOnPolicy.py", 50);
     Assert.assertEquals(0, ControlChecks.countChildren("zephyr.plugin.critterview.view.observation"));
   }
 
-  @Test
+  @Test(timeout = RunnableFilesTests.TimeOut)
   public void testJythonHordeOffPolicyPredictionsTest() {
     ZephyrCore.setSynchronous(true);
     RunnableTests.testFileLoading(critterbotRoot + "/rlpark.example.critterbot/pysrc/DemonsPredictionOffPolicy.py", 50);
     Assert.assertEquals(0, ControlChecks.countChildren("zephyr.plugin.critterview.view.observation"));
   }
 
-  @Test
+  @Test(timeout = RunnableFilesTests.TimeOut)
   public void testJythonHordeOffPolicyControlTest() {
     ZephyrCore.setSynchronous(true);
     RunnableTests.testFileLoading(critterbotRoot + "/rlpark.example.critterbot/pysrc/DemonsControlOffPolicy.py", 50);
