@@ -56,7 +56,7 @@ public class CritterbotDemonsPredictionOffPolicy implements Runnable {
     Policy[] policies = createPolicies(XYThetaAction.sevenActions());
     System.out.println("Creating demons...");
     List<Demon> demons = createDemons(behaviour, policies, rewardFunctions);
-    horde = new Horde(demons, rewardFunctions, null, null);
+    horde = new Horde(demons, rewardFunctions);
     System.out.println(String.format("Ready for running... %d demons with %d actives features on %d.", demons.size(),
                                      (int) projector.vectorNorm(), projector.vectorSize()));
   }
