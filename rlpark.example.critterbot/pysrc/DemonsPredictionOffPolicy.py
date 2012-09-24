@@ -7,19 +7,19 @@ from rlpark.plugin.rltoys.envio.policy import Policy
 from rlpark.plugin.critterbot.actions import XYThetaAction
 from java.util import Random
 from rlpark.plugin.rltoys.algorithms.representations.tilescoding import TileCodersNoHashing
-from rlpark.plugin.rltoys.horde.functions import RewardFunction
-from rlpark.plugin.rltoys.horde.demons import DemonScheduler
+from rlpark.plugin.rltoys.horde.functions import RewardFunction, HordeUpdatable
+from rlpark.plugin.rltoys.horde import Horde
 from rlpark.plugin.rltoys.horde.demons import PredictionOffPolicyDemon
 from rlpark.plugin.rltoys.algorithms.predictions.td import GTDLambda
 
-class SensorRewardFunction(RewardFunction):
+class SensorRewardFunction(RewardFunction, HordeUpdatable):
     def __init__(self, legend, label):
         self.label = "reward" + label
         self.index = legend.indexOf(label)
         self.rewardValue = 0
         
-    def update(self, o_tp1):
-        self.rewardValue = o_tp1[self.index]
+    def update(self, o_tp1, x_t, a_t, x_tp1):
+        self.rewardValue = o_tp1.doubleValues()[self.index]
         
     def reward(self):
         return self.rewardValue
@@ -48,12 +48,12 @@ class DemonExperiment(object):
         self.behaviourPolicy = RandomPolicy(Random(0), self.actions)
         self.representation = TileCodersNoHashing(self.environment.legend().nbLabels(), -2000, 2000)
         self.representation.includeActiveFeature()
-        self.demonsScheduler = DemonScheduler()
         self.demons = []
         for rewardFunction in self.rewards:
             targetPolicy = SingleActionPolicy(XYThetaAction.Left)
             demon = self.createOffPolicyPredictionDemon(rewardFunction, targetPolicy)
             self.demons.append(demon)
+        self.horde = Horde(self.demons, self.rewards)
         self.x_t = None
         self.clock = zepy.clock("Horde Off-policy Predictions")
 
@@ -73,17 +73,15 @@ class DemonExperiment(object):
         return PredictionOffPolicyDemon(targetPolicy, self.behaviourPolicy, gtd, rewardFunction)
         
     def learn(self, a_t, o_tp1):
-        for rewardFunction in self.rewards:
-            rewardFunction.update(o_tp1)
-        x_tp1 = self.representation.project(o_tp1)
-        self.demonsScheduler.update(self.demons, self.x_t, a_t, x_tp1)
+        x_tp1 = self.representation.project(o_tp1.doubleValues())
+        self.horde.update(o_tp1, self.x_t, a_t, x_tp1)
         self.x_t = x_tp1
         
     def run(self):
         a_t = None
         while self.clock.tick():
             self.latencyTimer.start()
-            o_tp1 = self.environment.waitNewObs()
+            o_tp1 = self.environment.waitNewRawObs()
             self.learn(a_t, o_tp1)
             self.behaviourPolicy.update(None)
             a_tp1 = self.behaviourPolicy.sampleAction()
@@ -96,7 +94,7 @@ class DemonExperiment(object):
                 
     def zephyrize(self):
         zepy.advertise(self.clock, self.environment)
-        zepy.advertise(self.clock, self.demonsScheduler)
+        zepy.advertise(self.clock, self.horde)
         for rewardFunction in self.rewards:
             zepy.monattr(self.clock, rewardFunction, 'rewardValue', label = rewardFunction.label)
                 
