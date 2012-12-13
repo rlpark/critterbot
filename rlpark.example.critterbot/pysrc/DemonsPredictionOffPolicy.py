@@ -11,6 +11,7 @@ from rlpark.plugin.rltoys.horde.functions import RewardFunction, HordeUpdatable
 from rlpark.plugin.rltoys.horde import Horde
 from rlpark.plugin.rltoys.horde.demons import PredictionOffPolicyDemon
 from rlpark.plugin.rltoys.algorithms.predictions.td import GTDLambda
+from rlpark.plugin.rltoys.math.vector.implementations import Vectors
 
 class SensorRewardFunction(RewardFunction, HordeUpdatable):
     def __init__(self, legend, label):
@@ -53,7 +54,9 @@ class DemonExperiment(object):
             targetPolicy = SingleActionPolicy(XYThetaAction.Left)
             demon = self.createOffPolicyPredictionDemon(rewardFunction, targetPolicy)
             self.demons.append(demon)
-        self.horde = Horde(self.demons, self.rewards)
+        self.horde = Horde()
+        self.horde.demons().addAll(self.demons)
+        self.horde.beforeFunctions().addAll(self.rewards)
         self.x_t = None
         self.clock = zepy.clock("Horde Off-policy Predictions")
 
@@ -75,7 +78,7 @@ class DemonExperiment(object):
     def learn(self, a_t, o_tp1):
         x_tp1 = self.representation.project(o_tp1.doubleValues())
         self.horde.update(o_tp1, self.x_t, a_t, x_tp1)
-        self.x_t = x_tp1
+        self.x_t = Vectors.bufferedCopy(x_tp1, self.x_t)
         
     def run(self):
         a_t = None

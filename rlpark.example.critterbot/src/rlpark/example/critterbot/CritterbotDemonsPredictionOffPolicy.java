@@ -25,6 +25,7 @@ import rlpark.plugin.rltoys.horde.Horde;
 import rlpark.plugin.rltoys.horde.demons.Demon;
 import rlpark.plugin.rltoys.horde.demons.PredictionOffPolicyDemon;
 import rlpark.plugin.rltoys.horde.functions.ConstantGamma;
+import rlpark.plugin.rltoys.horde.functions.HordeUpdatable;
 import rlpark.plugin.rltoys.horde.functions.RewardFunction;
 import rlpark.plugin.rltoys.horde.functions.RewardObservationFunction;
 import rlpark.plugin.rltoys.math.normalization.IncMeanVarNormalizer;
@@ -56,7 +57,10 @@ public class CritterbotDemonsPredictionOffPolicy implements Runnable {
     Policy[] policies = createPolicies(XYThetaAction.sevenActions());
     System.out.println("Creating demons...");
     List<Demon> demons = createDemons(behaviour, policies, rewardFunctions);
-    horde = new Horde(demons, rewardFunctions);
+    horde = new Horde();
+    horde.demons().addAll(demons);
+    for (RewardFunction rewardFunction : rewardFunctions)
+      horde.addBeforeFunction((HordeUpdatable) rewardFunction);
     System.out.println(String.format("Ready for running... %d demons with %d actives features on %d.", demons.size(),
                                      (int) projector.vectorNorm(), projector.vectorSize()));
   }
