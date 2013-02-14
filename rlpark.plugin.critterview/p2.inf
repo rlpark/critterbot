@@ -15,5 +15,5 @@ requires.4.name = rlpark.feature.irobot.feature.group
 requires.4.range = [1.0.0, 2.0.0)
 
 instructions.configure=\
-  addRepository(name:Zephyr,type:0,location:http${#58}//www.ualberta.ca/~degris/zephyr);\
-  addRepository(name:Zephyr,type:1,location:http${#58}//www.ualberta.ca/~degris/zephyr);
+  addRepository(name:Zephyr,type:0,location:http${#58}//people.bordeaux.inria.fr/degris/public/zephyr);\
+  addRepository(name:Zephyr,type:1,location:http${#58}//people.bordeaux.inria.fr/degris/public/zephyr);
