@@ -66,7 +66,6 @@ public class CritterbotEnvironment extends RobotEnvironment implements Critterbo
     CritterbotEnvironments.addActionsLogged(this, monitor);
   }
 
-  @Override
   public void sendAction(Action a) {
     sendAction((CritterbotAction) a);
   }
