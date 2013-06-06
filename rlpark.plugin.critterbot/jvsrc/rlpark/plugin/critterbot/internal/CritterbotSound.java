@@ -62,4 +62,9 @@ public class CritterbotSound implements ObservationReceiver {
   public int packetSize() {
     return soundFFTDrop.dataSize();
   }
+
+  @Override
+  public void close() {
+    socket.close();
+  }
 }
