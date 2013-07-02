@@ -18,7 +18,7 @@ import rlpark.plugin.rltoys.algorithms.representations.tilescoding.hashing.Murmu
 import rlpark.plugin.rltoys.envio.actions.Action;
 import rlpark.plugin.rltoys.envio.observations.Legend;
 import rlpark.plugin.rltoys.envio.observations.ObsArray;
-import rlpark.plugin.rltoys.envio.policy.ActionPolicy;
+import rlpark.plugin.rltoys.envio.policy.SingleActionPolicy;
 import rlpark.plugin.rltoys.envio.policy.Policies;
 import rlpark.plugin.rltoys.envio.policy.Policy;
 import rlpark.plugin.rltoys.horde.Horde;
@@ -94,7 +94,7 @@ public class CritterbotDemonsPredictionOffPolicy implements Runnable {
   private Policy[] createPolicies(CritterbotAction[] actions) {
     Policy[] policies = new Policy[actions.length];
     for (int i = 0; i < policies.length; i++)
-      policies[i] = new ActionPolicy(actions[i]);
+      policies[i] = new SingleActionPolicy(actions[i]);
     return policies;
   }
 
